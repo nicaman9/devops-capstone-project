@@ -1,57 +1,43 @@
-#
-# This pipeline needs the following tasks from Tekton Hub
-#   - git-clone
-#   - flake8
-#
----
-apiVersion: tekton.dev/v1beta1
-kind: Pipeline
-metadata:  
-  name: cd-pipeline
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: accounts
+  name: accounts
 spec:
-  workspaces:
-    - name: pipeline-workspace
-  params:
-    - name: repo-url
-    - name: branch
-      default: main
-  tasks:
-    - name: init
-      workspaces:
-        - name: source
-          workspace: pipeline-workspace          
-      taskRef:
-        name: cleanup
+  replicas: 3
+  selector:
+    matchLabels:
+      app: accounts
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: accounts
+    spec:
+      containers:
+      - image: us.icr.io/sn-labs-nicaman9/accounts:1
+        name: accounts
+        resources: {}
 
-    - name: clone
-      workspaces:
-        - name: output
-          workspace: pipeline-workspace          
-      taskRef:
-        name: git-clone
-      params:
-      - name: url
-        value: $(params.repo-url)
-      - name: revision
-        value: $(params.branch)
-      runAfter:
-        - init
-    
-    - name: deploy
-      workspaces:
-        - name: manifest-dir
-          workspace: pipeline-workspace
-      taskRef:
-        name: openshift-client
-        kind: ClusterTask
-      params:
-      - name: SCRIPT
-        value: |
-          echo "Updating manifest..."
-          sed -i "s|IMAGE_NAME_HERE|$(params.build-image)|g" deploy/deployment.yaml
-          cat deploy/deployment.yaml
-          echo "Deploying to OpenShift..."
-          oc apply -f deploy/
-          oc get pods -l app=accounts
-      runAfter:
-        - build
+        env:
+          - name: DATABASE_HOST
+            value: postgresql
+          - name: DATABASE_NAME
+            valueFrom:
+              secretKeyRef:
+                name: postgresql
+                key: database-name
+          - name: DATABASE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: postgresql
+                key: database-password
+          - name: DATABASE_USER
+            valueFrom:
+              secretKeyRef:
+                name: postgresql
+                key: database-user
+status: {}
