@@ -36,16 +36,22 @@ spec:
         value: $(params.branch)
       runAfter:
         - init
-    - name: lint
+    
+    - name: deploy
       workspaces:
-        - name: source
+        - name: manifest-dir
           workspace: pipeline-workspace
       taskRef:
-        name: flake8
+        name: openshift-client
+        kind: ClusterTask
       params:
-      - name: image
-        value: "python:3.9-slim"
-      - name: args
-        value: ["--count","--max-complexity=10","--max-line-length=127","--statistics"]
+      - name: SCRIPT
+        value: |
+          echo "Updating manifest..."
+          sed -i "s|IMAGE_NAME_HERE|$(params.build-image)|g" deploy/deployment.yaml
+          cat deploy/deployment.yaml
+          echo "Deploying to OpenShift..."
+          oc apply -f deploy/
+          oc get pods -l app=accounts
       runAfter:
-        - clone
+        - build
